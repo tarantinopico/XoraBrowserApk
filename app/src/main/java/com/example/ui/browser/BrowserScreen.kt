@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
@@ -74,6 +76,7 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
     val isAddressBarFocused by viewModel.isAddressBarFocused.collectAsState()
     val activeIdentity by viewModel.activeIdentity.collectAsState()
     val identities by viewModel.identities.collectAsState()
+    val bookmarks by viewModel.bookmarks.collectAsState()
 
     val searchEngine by viewModel.searchEngine.collectAsState()
     val theme by viewModel.theme.collectAsState()
@@ -90,8 +93,21 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
     var isMenuExpanded by remember { mutableStateOf(false) }
     var showCreateIdentity by remember { mutableStateOf(false) }
     var editingIdentity by remember { mutableStateOf<com.example.model.BrowserIdentity?>(null) }
+    var showBookmarkDialog by remember { mutableStateOf(false) }
     var loadProgress by remember { mutableStateOf(0f) }
     var isLoading by remember { mutableStateOf(false) }
+
+    if (showBookmarkDialog) {
+        BookmarkDialog(
+            initialTitle = activeTab?.title?.takeIf { it != "xora://newtab" && it != "about:blank" } ?: "",
+            initialUrl = activeTab?.url?.takeIf { it != "xora://newtab" && it != "about:blank" } ?: "",
+            onDismiss = { showBookmarkDialog = false },
+            onSave = { title, url ->
+                viewModel.addBookmark(title, url)
+                showBookmarkDialog = false
+            }
+        )
+    }
 
     if (showCreateIdentity) {
         IdentityDialog(
@@ -171,6 +187,7 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                 onOpenSettings = { showSettings = true },
                 onOpenMenu = { isMenuExpanded = !isMenuExpanded },
                 onBack = { if (webView?.canGoBack() == true) webView?.goBack() },
+                onAddBookmark = { showBookmarkDialog = true },
                 onSwipeLeft = { // Swipe left -> Next tab
                     val currentIndex = tabs.indexOfFirst { it.id == activeTab?.id }
                     if (currentIndex != -1 && currentIndex < tabs.size - 1) {
@@ -258,6 +275,68 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = if (activeIdentity?.isIncognito == true) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
+                            
+                            if (bookmarks.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(Spacing.ExtraLarge))
+                                Text("Bookmarks", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, modifier = Modifier.align(Alignment.Start))
+                                Spacer(modifier = Modifier.height(Spacing.Medium))
+                                
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(3),
+                                    horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
+                                    modifier = Modifier.fillMaxWidth().height(200.dp)
+                                ) {
+                                    items(bookmarks) { bookmark ->
+                                        Surface(
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), // Glassy feel
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                                            modifier = Modifier
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(20.dp))
+                                                .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                                                    colors = listOf(
+                                                        Color.White.copy(alpha = 0.15f),
+                                                        Color.Transparent
+                                                    )
+                                                ))
+                                                .clickable { viewModel.onUrlSubmitted(bookmark.url) }
+                                        ) {
+                                            Box(modifier = Modifier.fillMaxSize()) {
+                                                Column(
+                                                    modifier = Modifier.fillMaxSize().padding(Spacing.Small),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.Center
+                                                ) {
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                        modifier = Modifier.size(40.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(8.dp))
+                                                    }
+                                                    Spacer(modifier = Modifier.height(Spacing.Small))
+                                                    Text(
+                                                        bookmark.title,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                                // Delete button
+                                                IconButton(
+                                                    onClick = { viewModel.deleteBookmark(bookmark) },
+                                                    modifier = Modifier.align(Alignment.TopEnd).size(24.dp).padding(4.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Clear, contentDescription = "Delete Bookmark", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } else {
                         androidx.compose.runtime.key(currentTab.id) {
@@ -366,7 +445,10 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                     viewModel.createNewTab()
                     isMenuExpanded = false
                 },
-                onBookmarks = { },
+                onBookmarks = { 
+                    viewModel.createNewTab()
+                    isMenuExpanded = false
+                },
                 onHistory = { },
                 onSettings = {
                     showSettings = true
@@ -398,6 +480,7 @@ fun BrowserAddressBar(
     onOpenSettings: () -> Unit,
     onOpenMenu: () -> Unit,
     onBack: () -> Unit,
+    onAddBookmark: () -> Unit,
     onSwipeLeft: () -> Unit = {},
     onSwipeRight: () -> Unit = {},
     onSwipeDown: () -> Unit = {},
@@ -509,6 +592,10 @@ fun BrowserAddressBar(
                         }
                     }
                 )
+
+                IconButton(onClick = onAddBookmark) {
+                    Icon(imageVector = Icons.Default.Star, contentDescription = "Bookmark", tint = if (isIncognito) Color.White else LocalContentColor.current)
+                }
 
                 IconButton(onClick = onOpenMenu) {
                     Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu", tint = if (isIncognito) Color.White else LocalContentColor.current)

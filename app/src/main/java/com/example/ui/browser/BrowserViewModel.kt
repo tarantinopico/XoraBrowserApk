@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.model.BrowserIdentity
 import com.example.model.Tab
+import com.example.model.Bookmark
 import com.example.repository.BrowserRepository
 import com.example.BrowserApplication
 import kotlinx.coroutines.flow.*
@@ -39,6 +40,11 @@ class BrowserViewModel(
     val activeTab = activeIdentity.filterNotNull().flatMapLatest { identity ->
         repository.getActiveTabForIdentity(identity.id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val bookmarks = activeIdentity.filterNotNull().flatMapLatest { identity ->
+        repository.getBookmarks(identity.id)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val searchEngine = repository.searchEngine.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Google")
     val theme = repository.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Auto")
@@ -208,6 +214,19 @@ class BrowserViewModel(
     fun clearBrowsingData() {
         viewModelScope.launch {
             repository.clearAllHistoryAndTabs()
+        }
+    }
+
+    fun addBookmark(title: String, url: String) {
+        val identity = activeIdentity.value ?: return
+        viewModelScope.launch {
+            repository.addBookmark(identity.id, title, url)
+        }
+    }
+
+    fun deleteBookmark(bookmark: Bookmark) {
+        viewModelScope.launch {
+            repository.deleteBookmark(bookmark)
         }
     }
 

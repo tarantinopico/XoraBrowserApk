@@ -176,6 +176,77 @@ fun IdentityDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BookmarkDialog(
+    initialTitle: String,
+    initialUrl: String,
+    onDismiss: () -> Unit,
+    onSave: (title: String, url: String) -> Unit
+) {
+    var title by remember { mutableStateOf(initialTitle) }
+    var url by remember { mutableStateOf(initialUrl) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(Radius.ExtraLarge),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.Large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.Medium)
+            ) {
+                Text(
+                    text = "Add Bookmark",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(Radius.Medium),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text("URL") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(Radius.Medium),
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(Spacing.Small))
+                    Button(
+                        onClick = {
+                            if (title.isNotBlank() && url.isNotBlank()) {
+                                onSave(title.trim(), url.trim())
+                            }
+                        },
+                        enabled = title.isNotBlank() && url.isNotBlank(),
+                        shape = RoundedCornerShape(Radius.Medium)
+                    ) {
+                        Text("Save")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(

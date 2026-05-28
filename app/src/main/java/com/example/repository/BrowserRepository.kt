@@ -120,6 +120,10 @@ class BrowserRepository(
         browserDao.insertBookmark(bookmark)
     }
 
+    suspend fun deleteBookmark(bookmark: Bookmark) {
+        browserDao.deleteBookmark(bookmark)
+    }
+
     suspend fun clearAllHistoryAndTabs() {
         browserDao.clearHistory()
         browserDao.clearTabs()
