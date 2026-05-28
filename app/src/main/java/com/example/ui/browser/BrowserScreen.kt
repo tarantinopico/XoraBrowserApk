@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import com.example.ui.theme.Spacing
 import com.example.ui.theme.Radius
+import androidx.compose.ui.draw.blur
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,21 +62,8 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     val focusManager = LocalFocusManager.current
 
-    val panelMaxHeightDp = 400.dp
-    val density = LocalDensity.current
-    val panelMaxHeightPx = with(density) { panelMaxHeightDp.toPx() }
-    val offsetY = remember { androidx.compose.animation.core.Animatable(0f) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val draggableState = rememberDraggableState { delta ->
-        coroutineScope.launch {
-            val newOffset = (offsetY.value + delta).coerceIn(0f, panelMaxHeightPx)
-            offsetY.snapTo(newOffset)
-        }
-    }
-
     var showSettings by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
+    var isMenuExpanded by remember { mutableStateOf(false) }
 
     if (showSettings) {
         AlertDialog(
@@ -104,182 +93,14 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    if (showMenu) {
-        ModalBottomSheet(
-            onDismissRequest = { showMenu = false }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = Spacing.Large, start = Spacing.Medium, end = Spacing.Medium)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
-                        showMenu = false
-                        viewModel.createNewTab()
-                    }.padding(Spacing.Small)) {
-                        Surface(shape = RoundedCornerShape(Radius.Medium), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Default.Add, contentDescription = "New Tab", modifier = Modifier.padding(12.dp))
-                        }
-                        Spacer(modifier = Modifier.height(Spacing.ExtraSmall))
-                        Text("New Tab", style = MaterialTheme.typography.labelSmall)
-                    }
-                    
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
-                        showMenu = false
-                        viewModel.createIdentity("Incognito", isIncognito = true)
-                    }.padding(Spacing.Small)) {
-                        Surface(shape = RoundedCornerShape(Radius.Medium), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Default.Lock, contentDescription = "Incognito", modifier = Modifier.padding(12.dp))
-                        }
-                        Spacer(modifier = Modifier.height(Spacing.ExtraSmall))
-                        Text("Incognito", style = MaterialTheme.typography.labelSmall)
-                    }
-                    
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
-                         showMenu = false
-                    }.padding(Spacing.Small)) {
-                        Surface(shape = RoundedCornerShape(Radius.Medium), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Default.Star, contentDescription = "Bookmarks", modifier = Modifier.padding(12.dp))
-                        }
-                        Spacer(modifier = Modifier.height(Spacing.ExtraSmall))
-                        Text("Bookmarks", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(Spacing.Medium))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(Spacing.Small))
-                
-                ListItem(
-                    headlineContent = { Text("Downloads") },
-                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
-                    modifier = Modifier.clickable { showMenu = false }
-                )
-                ListItem(
-                    headlineContent = { Text("Settings") },
-                    leadingContent = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    modifier = Modifier.clickable { 
-                        showMenu = false
-                        showSettings = true 
-                    }
-                )
-            }
-        }
-    }
-
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
-        
-        // ------------- Hidden Panel (Tabs & Identities) -------------
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(panelMaxHeightDp)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(horizontal = Spacing.Medium, vertical = Spacing.Large)
-        ) {
-             Text("Identities", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-             Spacer(modifier = Modifier.height(Spacing.Small))
-             LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                 items(identities) { identity ->
-                     val selected = identity.id == activeIdentity?.id
-                     FilterChip(
-                         selected = selected,
-                         onClick = { 
-                             viewModel.switchIdentity(identity.id) 
-                             coroutineScope.launch {
-                                 offsetY.animateTo(0f, animationSpec = androidx.compose.animation.core.spring())
-                             }
-                         },
-                         label = { 
-                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                 if (identity.isIncognito) {
-                                     Icon(Icons.Default.Lock, contentDescription = "Incognito", modifier = Modifier.size(14.dp))
-                                     Spacer(modifier = Modifier.width(Spacing.ExtraSmall))
-                                 }
-                                 Text(identity.name, style = MaterialTheme.typography.labelMedium)
-                             }
-                         },
-                         shape = RoundedCornerShape(Radius.Medium)
-                     )
-                 }
-                 
-                 item {
-                     // ADD IDENTITY BUTTON
-                     FilterChip(
-                         selected = false,
-                         onClick = { viewModel.createIdentity("Profile ${identities.size + 1}") },
-                         label = { Text("+ Add", style = MaterialTheme.typography.labelMedium) },
-                         shape = RoundedCornerShape(Radius.Medium)
-                     )
-                 }
-             }
-
-             Spacer(modifier = Modifier.height(Spacing.Large))
-             
-             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                 Text("Open Tabs", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                 FilledTonalButton(onClick = { 
-                     viewModel.createNewTab()
-                     coroutineScope.launch {
-                         offsetY.animateTo(0f, animationSpec = androidx.compose.animation.core.spring())
-                     } 
-                 }, shape = RoundedCornerShape(Radius.ExtraLarge)) {
-                     Icon(Icons.Default.Add, contentDescription = "New Tab", modifier = Modifier.size(16.dp))
-                     Spacer(modifier = Modifier.width(Spacing.ExtraSmall))
-                     Text("New Tab")
-                 }
-             }
-             
-             Spacer(modifier = Modifier.height(Spacing.Medium))
-             
-             // Tabs list
-             LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
-                 items(tabs) { tab ->
-                     val isSelected = tab.id == activeTab?.id
-                     Card(
-                         shape = RoundedCornerShape(Radius.Medium),
-                         colors = CardDefaults.cardColors(
-                             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                         ),
-                         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp),
-                         modifier = Modifier.width(160.dp).height(120.dp),
-                         onClick = {
-                             viewModel.switchTab(tab.id)
-                             coroutineScope.launch {
-                                 offsetY.animateTo(0f, animationSpec = androidx.compose.animation.core.spring())
-                             }
-                         }
-                     ) {
-                         Box(modifier = Modifier.fillMaxSize().padding(Spacing.Medium)) {
-                             Text(
-                                 tab.title, 
-                                 style = MaterialTheme.typography.bodyMedium, 
-                                 maxLines = 2, 
-                                 color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                 modifier = Modifier.align(Alignment.TopStart).padding(end = 24.dp)
-                             )
-                             IconButton(
-                                 onClick = { viewModel.closeTab(tab) }, 
-                                 modifier = Modifier.align(Alignment.TopEnd).size(24.dp).offset(x = 8.dp, y = (-8).dp)
-                             ) {
-                                 Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
-                             }
-                         }
-                     }
-                 }
-             }
-        }
         
         // ------------- Main Content (Top Chrome + WebView) -------------
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .offset { androidx.compose.ui.unit.IntOffset(0, offsetY.value.roundToInt()) }
                 .background(if (activeIdentity?.isIncognito == true) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.background)
+                .blur(if (isMenuExpanded) 16.dp else 0.dp)
         ) {
             // Address Bar
             BrowserAddressBar(
@@ -295,19 +116,8 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                 onNewTab = { viewModel.createNewTab() },
                 onNewIncognito = { viewModel.createIdentity("Incognito", isIncognito = true) },
                 onOpenSettings = { showSettings = true },
-                onOpenMenu = { showMenu = true },
-                onBack = { if (webView?.canGoBack() == true) webView?.goBack() },
-                modifier = Modifier
-                    .draggable(
-                        state = draggableState,
-                        orientation = Orientation.Vertical,
-                        onDragStopped = { velocity -> 
-                             val target = if (offsetY.value > panelMaxHeightPx / 2 || velocity > 500f) panelMaxHeightPx else 0f
-                             coroutineScope.launch {
-                                 offsetY.animateTo(target, initialVelocity = velocity, animationSpec = androidx.compose.animation.core.spring())
-                             }
-                        }
-                    )
+                onOpenMenu = { isMenuExpanded = !isMenuExpanded },
+                onBack = { if (webView?.canGoBack() == true) webView?.goBack() }
             )
 
             // Web View Area
@@ -362,6 +172,51 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                     )
                 }
             }
+        }
+        
+        // ------------- Menu Overlay -------------
+        if (isMenuExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) { isMenuExpanded = false }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isMenuExpanded,
+            enter = androidx.compose.animation.slideInVertically(initialOffsetY = { -it }) + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }) + androidx.compose.animation.fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            MenuAndTabsPanel(
+                identities = identities,
+                activeIdentity = activeIdentity,
+                tabs = tabs,
+                activeTab = activeTab,
+                onClose = { isMenuExpanded = false },
+                onSwitchIdentity = { viewModel.switchIdentity(it) },
+                onAddIdentity = { viewModel.createIdentity("Profile ${identities.size + 1}") },
+                onNewTab = { 
+                    viewModel.createNewTab()
+                    isMenuExpanded = false
+                },
+                onBookmarks = { /* TODO */ },
+                onHistory = { /* TODO */ },
+                onSettings = {
+                    showSettings = true
+                    isMenuExpanded = false
+                },
+                onSwitchTab = { 
+                    viewModel.switchTab(it)
+                    isMenuExpanded = false
+                },
+                onCloseTab = { viewModel.closeTab(it) }
+            )
         }
     }
 }
@@ -453,6 +308,218 @@ fun BrowserAddressBar(
 
             IconButton(onClick = onOpenMenu) {
                 Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu", tint = if (isIncognito) Color.White else LocalContentColor.current)
+            }
+        }
+    }
+}
+
+@Composable
+fun MenuAndTabsPanel(
+    identities: List<com.example.model.BrowserIdentity>,
+    activeIdentity: com.example.model.BrowserIdentity?,
+    tabs: List<com.example.model.Tab>,
+    activeTab: com.example.model.Tab?,
+    onClose: () -> Unit,
+    onSwitchIdentity: (Long) -> Unit,
+    onAddIdentity: () -> Unit,
+    onNewTab: () -> Unit,
+    onBookmarks: () -> Unit,
+    onHistory: () -> Unit,
+    onSettings: () -> Unit,
+    onSwitchTab: (Long) -> Unit,
+    onCloseTab: (com.example.model.Tab) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(bottomStart = Radius.ExtraLarge, bottomEnd = Radius.ExtraLarge),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(12.dp),
+        tonalElevation = 6.dp,
+        shadowElevation = 8.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Medium, vertical = Spacing.Large)
+                .windowInsetsPadding(WindowInsets.statusBars)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Menu & Tabs",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close Menu", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(Spacing.Large))
+            
+            // Identity Card
+            Surface(
+                shape = RoundedCornerShape(Radius.Large),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(Spacing.Medium),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (activeIdentity?.isIncognito == true) Icons.Default.Lock else Icons.Default.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape)
+                            .padding(8.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.Medium))
+                    Text(
+                        text = activeIdentity?.name ?: "Personal",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    var showIdentities by remember { mutableStateOf(false) }
+                    
+                    Box {
+                        TextButton(onClick = { showIdentities = true }) {
+                            Text("SWITCH", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showIdentities,
+                            onDismissRequest = { showIdentities = false }
+                        ) {
+                            identities.forEach { id ->
+                                DropdownMenuItem(
+                                    text = { Text(id.name) },
+                                    onClick = {
+                                        onSwitchIdentity(id.id)
+                                        showIdentities = false
+                                    }
+                                )
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("+ Add Identity") },
+                                onClick = {
+                                    onAddIdentity()
+                                    showIdentities = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.Large))
+            
+            // Actions Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ActionItem(icon = Icons.Default.Add, label = "New Tab", onClick = onNewTab)
+                ActionItem(icon = Icons.Default.Star, label = "Bookmarks", onClick = onBookmarks)
+                ActionItem(icon = Icons.Default.Refresh, label = "History", onClick = onHistory)
+                ActionItem(icon = Icons.Default.Settings, label = "Settings", onClick = onSettings)
+            }
+            
+            Spacer(modifier = Modifier.height(Spacing.Large))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.height(Spacing.Large))
+            
+            // Tabs Grid/Row
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+                contentPadding = PaddingValues(bottom = Spacing.Small)
+            ) {
+                items(tabs) { tab ->
+                    TabCard(
+                        tab = tab,
+                        isActive = activeTab?.id == tab.id,
+                        onClick = { onSwitchTab(tab.id) },
+                        onClose = { onCloseTab(tab) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(Radius.Medium),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.size(56.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(modifier = Modifier.height(Spacing.Small))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, onClose: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(Radius.Medium),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = if (isActive) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        modifier = Modifier
+            .width(140.dp)
+            .height(180.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Tab Header
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = Spacing.Small, vertical = Spacing.ExtraSmall),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        tab.title,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+            // Tab Content Thumbnail placeholder
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                // If we had a real thumbnail, we'd put it here
             }
         }
     }
