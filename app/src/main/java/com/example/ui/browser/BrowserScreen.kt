@@ -64,32 +64,22 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
 
     var showSettings by remember { mutableStateOf(false) }
     var isMenuExpanded by remember { mutableStateOf(false) }
+    var showCreateIdentity by remember { mutableStateOf(false) }
+
+    if (showCreateIdentity) {
+        CreateIdentityDialog(
+            onDismiss = { showCreateIdentity = false },
+            onCreate = { name, color, icon, isIncognito ->
+                viewModel.createIdentity(name, color, icon, isIncognito)
+                showCreateIdentity = false
+            }
+        )
+    }
 
     if (showSettings) {
-        AlertDialog(
-            onDismissRequest = { showSettings = false },
-            title = { Text("Settings", style = MaterialTheme.typography.titleLarge) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
-                    TextButton(onClick = { 
-                        showSettings = false
-                        viewModel.clearBrowsingData() 
-                    }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Clear Browsing Data (History & Tabs)")
-                    }
-                    TextButton(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Default Search Engine: Google")
-                    }
-                    TextButton(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Theme: Auto")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showSettings = false }) {
-                    Text("Done")
-                }
-            }
+        SettingsDialog(
+            onDismiss = { showSettings = false },
+            onClearData = { viewModel.clearBrowsingData() }
         )
     }
 
@@ -179,7 +169,7 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.3f))
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null
@@ -200,7 +190,10 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                 activeTab = activeTab,
                 onClose = { isMenuExpanded = false },
                 onSwitchIdentity = { viewModel.switchIdentity(it) },
-                onAddIdentity = { viewModel.createIdentity("Profile ${identities.size + 1}") },
+                onAddIdentity = { 
+                    showCreateIdentity = true
+                    isMenuExpanded = false 
+                },
                 onNewTab = { 
                     viewModel.createNewTab()
                     isMenuExpanded = false
@@ -330,16 +323,16 @@ fun MenuAndTabsPanel(
     onCloseTab: (com.example.model.Tab) -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(bottomStart = Radius.ExtraLarge, bottomEnd = Radius.ExtraLarge),
-        color = MaterialTheme.colorScheme.surfaceColorAtElevation(12.dp),
-        tonalElevation = 6.dp,
-        shadowElevation = 8.dp
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Small, vertical = Spacing.Small),
+        shape = RoundedCornerShape(Radius.ExtraLarge),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.85f),
+        tonalElevation = 0.dp,
+        shadowElevation = 16.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.Medium, vertical = Spacing.Large)
+                .padding(horizontal = Spacing.Medium, vertical = Spacing.Medium)
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             // Header
@@ -350,37 +343,39 @@ fun MenuAndTabsPanel(
             ) {
                 Text(
                     "Menu & Tabs",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
                 
                 IconButton(
                     onClick = onClose,
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape)
+                    modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.surfaceVariant, androidx.compose.foundation.shape.CircleShape)
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close Menu", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Default.Close, contentDescription = "Close Menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 }
             }
             
-            Spacer(modifier = Modifier.height(Spacing.Large))
+            Spacer(modifier = Modifier.height(Spacing.Medium))
             
             // Identity Card
             Surface(
                 shape = RoundedCornerShape(Radius.Large),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier.padding(Spacing.Medium),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val activeColor = activeIdentity?.colorHex?.let { kotlin.runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: MaterialTheme.colorScheme.primary
+                    val vector = availableIcons[activeIdentity?.iconName] ?: Icons.Default.Person
                     Icon(
-                        imageVector = if (activeIdentity?.isIncognito == true) Icons.Default.Lock else Icons.Default.Person,
+                        imageVector = if (activeIdentity?.isIncognito == true) Icons.Default.Lock else vector,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = activeColor,
                         modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape)
+                            .background(activeColor.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
                             .padding(8.dp)
                     )
                     Spacer(modifier = Modifier.width(Spacing.Medium))
@@ -402,9 +397,24 @@ fun MenuAndTabsPanel(
                             expanded = showIdentities,
                             onDismissRequest = { showIdentities = false }
                         ) {
+                            val activeId = activeIdentity?.id
                             identities.forEach { id ->
+                                val idColor = kotlin.runCatching { Color(android.graphics.Color.parseColor(id.colorHex)) }.getOrNull() ?: MaterialTheme.colorScheme.primary
+                                val baseVector = availableIcons[id.iconName] ?: Icons.Default.Person
+                                val vector = if (id.isIncognito) Icons.Default.Lock else baseVector
                                 DropdownMenuItem(
-                                    text = { Text(id.name) },
+                                    leadingIcon = {
+                                         Icon(
+                                             imageVector = vector,
+                                             contentDescription = null,
+                                             tint = idColor,
+                                             modifier = Modifier
+                                                 .background(idColor.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
+                                                 .padding(4.dp)
+                                                 .size(20.dp)
+                                         )
+                                    },
+                                    text = { Text(id.name, fontWeight = if (id.id == activeId) androidx.compose.ui.text.font.FontWeight.Bold else null) },
                                     onClick = {
                                         onSwitchIdentity(id.id)
                                         showIdentities = false
@@ -413,7 +423,10 @@ fun MenuAndTabsPanel(
                             }
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("+ Add Identity") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                },
+                                text = { Text("Add Identity") },
                                 onClick = {
                                     onAddIdentity()
                                     showIdentities = false
@@ -424,7 +437,7 @@ fun MenuAndTabsPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Spacing.Large))
+            Spacer(modifier = Modifier.height(Spacing.Medium))
             
             // Actions Row
             Row(
@@ -437,13 +450,13 @@ fun MenuAndTabsPanel(
                 ActionItem(icon = Icons.Default.Settings, label = "Settings", onClick = onSettings)
             }
             
-            Spacer(modifier = Modifier.height(Spacing.Large))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(Spacing.Large))
+            Spacer(modifier = Modifier.height(Spacing.Medium))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(Spacing.Medium))
             
             // Tabs Grid/Row
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
                 contentPadding = PaddingValues(bottom = Spacing.Small)
             ) {
                 items(tabs) { tab ->
@@ -467,15 +480,15 @@ fun ActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Str
     ) {
         Surface(
             shape = RoundedCornerShape(Radius.Medium),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.size(56.dp)
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.size(48.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(modifier = Modifier.height(Spacing.Small))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -483,11 +496,11 @@ fun ActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Str
 fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, onClose: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(Radius.Medium),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = if (isActive) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier
-            .width(140.dp)
-            .height(180.dp)
+            .width(110.dp)
+            .height(130.dp)
             .clickable(onClick = onClick)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {

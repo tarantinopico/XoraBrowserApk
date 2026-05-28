@@ -8,6 +8,7 @@ data class BrowserIdentity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val colorHex: String,
+    val iconName: String = "Person",
     val isActive: Boolean = false,
     val isIncognito: Boolean = false
 )

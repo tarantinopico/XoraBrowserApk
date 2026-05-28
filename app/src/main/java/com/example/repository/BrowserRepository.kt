@@ -13,8 +13,8 @@ class BrowserRepository(
     val identities: Flow<List<BrowserIdentity>> = browserDao.getAllIdentities()
     val activeIdentity: Flow<BrowserIdentity?> = browserDao.getActiveIdentity()
 
-    suspend fun createIdentity(name: String, colorHex: String, isIncognito: Boolean = false): Long {
-        return browserDao.insertIdentity(BrowserIdentity(name = name, colorHex = colorHex, isIncognito = isIncognito))
+    suspend fun createIdentity(name: String, colorHex: String, iconName: String = "Person", isIncognito: Boolean = false): Long {
+        return browserDao.insertIdentity(BrowserIdentity(name = name, colorHex = colorHex, iconName = iconName, isIncognito = isIncognito))
     }
 
     suspend fun setActiveIdentity(id: Long) {

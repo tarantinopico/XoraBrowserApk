@@ -60,9 +60,9 @@ class BrowserViewModel(
         }
     }
 
-    fun createIdentity(name: String, isIncognito: Boolean = false) {
+    fun createIdentity(name: String, colorHex: String = "#FFFFFF", iconName: String = "Person", isIncognito: Boolean = false) {
         viewModelScope.launch {
-            val id = repository.createIdentity(name, "#FFFFFF", isIncognito)
+            val id = repository.createIdentity(name, colorHex, iconName, isIncognito)
             repository.setActiveIdentity(id)
             repository.addTab(id, "New Tab", "https://www.google.com", 0, isActive = true)
         }
