@@ -60,6 +60,9 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
     val activeIdentity by viewModel.activeIdentity.collectAsState()
     val identities by viewModel.identities.collectAsState()
 
+    val searchEngine by viewModel.searchEngine.collectAsState()
+    val theme by viewModel.theme.collectAsState()
+
     var webView by remember { mutableStateOf<WebView?>(null) }
     val focusManager = LocalFocusManager.current
 
@@ -81,6 +84,10 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
 
     if (showSettings) {
         SettingsDialog(
+            searchEngine = searchEngine,
+            theme = theme,
+            onSearchEngineChange = { viewModel.setSearchEngine(it) },
+            onThemeChange = { viewModel.setTheme(it) },
             onDismiss = { showSettings = false },
             onClearData = { viewModel.clearBrowsingData() }
         )
@@ -125,68 +132,69 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
             // Web View Area
             Box(modifier = Modifier.fillMaxSize().weight(1f)) {
                 if (activeTab != null) {
-                    AndroidView(
-                        factory = { context ->
-                            WebView(context).apply {
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                webChromeClient = object : android.webkit.WebChromeClient() {
-                                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                        super.onProgressChanged(view, newProgress)
-                                        loadProgress = newProgress / 100f
-                                        isLoading = newProgress < 100
+                    androidx.compose.runtime.key(activeTab!!.id) {
+                        var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
+                        
+                        AndroidView(
+                            factory = { context ->
+                                WebView(context).apply {
+                                    settings.javaScriptEnabled = true
+                                    settings.domStorageEnabled = true
+                                    webChromeClient = object : android.webkit.WebChromeClient() {
+                                        override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                            super.onProgressChanged(view, newProgress)
+                                            loadProgress = newProgress / 100f
+                                            isLoading = newProgress < 100
+                                        }
                                     }
-                                }
-                                webViewClient = object : WebViewClient() {
-                                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                        super.onPageStarted(view, url, favicon)
-                                        url?.let { viewModel.onPageStarted(it) }
-                                        isLoading = true
-                                        loadProgress = 0f
+                                    webViewClient = object : WebViewClient() {
+                                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                            super.onPageStarted(view, url, favicon)
+                                            url?.let { viewModel.onPageStarted(it) }
+                                            isLoading = true
+                                            loadProgress = 0f
+                                        }
+                                        
+                                        override fun onPageFinished(view: WebView?, url: String?) {
+                                            super.onPageFinished(view, url)
+                                            isLoading = false
+                                            loadProgress = 1f
+                                        }
+                                        
+                                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                            return false
+                                        }
                                     }
                                     
-                                    override fun onPageFinished(view: WebView?, url: String?) {
-                                        super.onPageFinished(view, url)
-                                        isLoading = false
-                                        loadProgress = 1f
+                                    setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                                        val request = android.app.DownloadManager.Request(android.net.Uri.parse(url)).apply {
+                                            setMimeType(mimetype)
+                                            addRequestHeader("User-Agent", userAgent)
+                                            setDescription("Downloading file...")
+                                            setTitle(android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
+                                            setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                            setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
+                                        }
+                                        val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                                        dm.enqueue(request)
+                                        android.widget.Toast.makeText(context, "Download started", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                     
-                                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                        return false
-                                    }
+                                    webView = this
+                                    lastLoadedUrl = activeTab!!.url
+                                    loadUrl(activeTab!!.url)
                                 }
-                                
-                                setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-                                    val request = android.app.DownloadManager.Request(android.net.Uri.parse(url)).apply {
-                                        setMimeType(mimetype)
-                                        addRequestHeader("User-Agent", userAgent)
-                                        setDescription("Downloading file...")
-                                        setTitle(android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
-                                        setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                        setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
-                                    }
-                                    val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                                    dm.enqueue(request)
-                                    android.widget.Toast.makeText(context, "Download started", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                                
-                                webView = this
-                                loadUrl(activeTab!!.url)
-                            }
-                        },
-                        update = { view ->
-                             val currentViewUrl = view.url
-                             val targetedUrl = activeTab?.url
-                             if (targetedUrl != null && currentViewUrl != targetedUrl && !isAddressBarFocused) {
-                                 // When switching tabs or submitting a new url, load it.
-                                 // But avoid reloading during typing or redirect.
-                                 if (currentViewUrl == null || !currentViewUrl.contains(targetedUrl) && !targetedUrl.contains(currentViewUrl)) {
-                                    view.loadUrl(targetedUrl)
+                            },
+                            update = { view ->
+                                 val targetedUrl = activeTab?.url
+                                 if (targetedUrl != null && lastLoadedUrl != targetedUrl && !isAddressBarFocused) {
+                                     lastLoadedUrl = targetedUrl
+                                     view.loadUrl(targetedUrl)
                                  }
-                             }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
@@ -225,8 +233,8 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                     viewModel.createNewTab()
                     isMenuExpanded = false
                 },
-                onBookmarks = { /* TODO */ },
-                onHistory = { /* TODO */ },
+                onBookmarks = { },
+                onHistory = { },
                 onSettings = {
                     showSettings = true
                     isMenuExpanded = false

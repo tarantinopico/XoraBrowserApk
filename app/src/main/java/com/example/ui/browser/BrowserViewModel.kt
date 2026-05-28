@@ -40,6 +40,17 @@ class BrowserViewModel(
         repository.getActiveTabForIdentity(identity.id)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val searchEngine = repository.searchEngine.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Google")
+    val theme = repository.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Auto")
+
+    fun setSearchEngine(engine: String) {
+        repository.setSearchEngine(engine)
+    }
+
+    fun setTheme(themeStr: String) {
+        repository.setTheme(themeStr)
+    }
+
     private val _isAddressBarFocused = MutableStateFlow(false)
     val isAddressBarFocused: StateFlow<Boolean> = _isAddressBarFocused.asStateFlow()
 

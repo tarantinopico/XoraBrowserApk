@@ -18,7 +18,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
     
     override val repository: BrowserRepository by lazy {
-        BrowserRepository(database.browserDao())
+        BrowserRepository(database.browserDao(), context)
     }
 }
 
