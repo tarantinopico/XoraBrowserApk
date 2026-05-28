@@ -249,14 +249,14 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                             Text(
                                 "Welcome to Xora",
                                 style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                                color = if (activeIdentity?.isIncognito == true) Color.White else MaterialTheme.colorScheme.onBackground
                             )
-                            Spacer(modifier = Modifier.height(Spacing.Medium))
+                            Spacer(modifier = Modifier.height(Spacing.Small))
                             Text(
-                                "Start typing in the address bar to search or navigate.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "Your private, comfortable browsing space.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (activeIdentity?.isIncognito == true) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
                         }
                     } else {
@@ -415,8 +415,9 @@ fun BrowserAddressBar(
     }
 
     Surface(
-        color = if (isIncognito) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
+        color = if (isIncognito) Color(0xFF121212) else MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        shadowElevation = 4.dp,
+        tonalElevation = 6.dp,
         contentColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface,
         modifier = modifier
             .fillMaxWidth()
@@ -468,14 +469,14 @@ fun BrowserAddressBar(
                     onValueChange = { textFieldValue = it },
                     modifier = Modifier
                         .weight(1f)
-                        .height(50.dp)
+                        .height(52.dp)
                         .onFocusChanged { onFocusChanged(it.isFocused) },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(26.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (isIncognito) Color.DarkGray else MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = if (isIncognito) Color.Gray else MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant,
                         focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface
                     ),
@@ -726,31 +727,36 @@ fun MenuAndTabsPanel(
 fun ActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier
+            .clip(RoundedCornerShape(Radius.Medium))
+            .clickable(onClick = onClick)
+            .padding(Spacing.Small)
     ) {
         Surface(
-            shape = RoundedCornerShape(Radius.Medium),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.size(48.dp)
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(56.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
     }
 }
 
 @Composable
 fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, onClose: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(Radius.Medium),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-        border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+        shape = RoundedCornerShape(Radius.Large),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = if (isActive) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = if (isActive) 8.dp else 2.dp,
         modifier = Modifier
-            .width(110.dp)
-            .height(130.dp)
+            .width(140.dp)
+            .height(180.dp)
+            .clip(RoundedCornerShape(Radius.Large))
             .clickable(onClick = onClick)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
