@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import com.example.ui.theme.Spacing
 import com.example.ui.theme.Radius
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.*
@@ -65,6 +66,8 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
     var showSettings by remember { mutableStateOf(false) }
     var isMenuExpanded by remember { mutableStateOf(false) }
     var showCreateIdentity by remember { mutableStateOf(false) }
+    var loadProgress by remember { mutableStateOf(0f) }
+    var isLoading by remember { mutableStateOf(false) }
 
     if (showCreateIdentity) {
         CreateIdentityDialog(
@@ -110,6 +113,15 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                 onBack = { if (webView?.canGoBack() == true) webView?.goBack() }
             )
 
+            AnimatedVisibility(visible = isLoading) {
+                LinearProgressIndicator(
+                    progress = { loadProgress },
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth().height(2.dp)
+                )
+            }
+
             // Web View Area
             Box(modifier = Modifier.fillMaxSize().weight(1f)) {
                 if (activeTab != null) {
@@ -118,10 +130,25 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                             WebView(context).apply {
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
+                                webChromeClient = object : android.webkit.WebChromeClient() {
+                                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                        super.onProgressChanged(view, newProgress)
+                                        loadProgress = newProgress / 100f
+                                        isLoading = newProgress < 100
+                                    }
+                                }
                                 webViewClient = object : WebViewClient() {
                                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                                         super.onPageStarted(view, url, favicon)
                                         url?.let { viewModel.onPageStarted(it) }
+                                        isLoading = true
+                                        loadProgress = 0f
+                                    }
+                                    
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        isLoading = false
+                                        loadProgress = 1f
                                     }
                                     
                                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -530,9 +557,17 @@ fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center
             ) {
-                // If we had a real thumbnail, we'd put it here
+                val iconUrl = "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${tab.url}&size=128"
+                coil.compose.AsyncImage(
+                    model = iconUrl,
+                    contentDescription = "Favicon",
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_crop) // Placeholder
+                )
             }
         }
     }

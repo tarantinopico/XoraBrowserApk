@@ -168,6 +168,9 @@ fun SettingsDialog(
     onDismiss: () -> Unit,
     onClearData: () -> Unit
 ) {
+    var searchEngine by remember { mutableStateOf("Google") }
+    var theme by remember { mutableStateOf("Auto") }
+    
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(Radius.ExtraLarge),
@@ -203,15 +206,19 @@ fun SettingsDialog(
                 SettingsItem(
                     icon = Icons.Default.Search,
                     title = "Default Search Engine",
-                    subtitle = "Google",
-                    onClick = { /* TODO */ }
+                    subtitle = searchEngine,
+                    onClick = { 
+                        searchEngine = if (searchEngine == "Google") "Bing" else if (searchEngine == "Bing") "DuckDuckGo" else "Google"
+                    }
                 )
 
                 SettingsItem(
                     icon = Icons.Default.Settings,
                     title = "Theme",
-                    subtitle = "Auto",
-                    onClick = { /* TODO */ }
+                    subtitle = theme,
+                    onClick = { 
+                        theme = if (theme == "Auto") "Dark" else if (theme == "Dark") "Light" else "Auto"
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(Spacing.Medium))
