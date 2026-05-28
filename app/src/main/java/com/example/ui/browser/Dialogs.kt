@@ -44,14 +44,16 @@ val availableIcons = mapOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateIdentityDialog(
+fun IdentityDialog(
+    initialIdentity: com.example.model.BrowserIdentity? = null,
     onDismiss: () -> Unit,
-    onCreate: (name: String, colorHex: String, iconName: String, isIncognito: Boolean) -> Unit
+    onSave: (name: String, colorHex: String, iconName: String, isIncognito: Boolean) -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
-    var name by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(availableColors[0]) }
-    var selectedIcon by remember { mutableStateOf("Person") }
-    var isIncognito by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf(initialIdentity?.name ?: "") }
+    var selectedColor by remember { mutableStateOf(initialIdentity?.colorHex ?: availableColors[0]) }
+    var selectedIcon by remember { mutableStateOf(initialIdentity?.iconName ?: "Person") }
+    var isIncognito by remember { mutableStateOf(initialIdentity?.isIncognito ?: false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -67,7 +69,7 @@ fun CreateIdentityDialog(
                 verticalArrangement = Arrangement.spacedBy(Spacing.Medium)
             ) {
                 Text(
-                    text = "New Identity",
+                    text = if (initialIdentity == null) "New Profile" else "Edit Profile",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
@@ -76,7 +78,7 @@ fun CreateIdentityDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Identity Name") },
+                    label = { Text("Profile Name") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(Radius.Medium),
                     singleLine = true
@@ -87,7 +89,7 @@ fun CreateIdentityDialog(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.Small)
                 ) {
                     items(availableColors) { colorHex ->
-                        val color = Color(android.graphics.Color.parseColor(colorHex))
+                        val color = kotlin.runCatching { Color(android.graphics.Color.parseColor(colorHex)) }.getOrElse { Color.Gray }
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -135,28 +137,38 @@ fun CreateIdentityDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth().clickable { isIncognito = !isIncognito }.padding(vertical = Spacing.Small)
                 ) {
-                    Text("Incognito Identity", style = MaterialTheme.typography.bodyLarge)
+                    Text("Incognito Profile", style = MaterialTheme.typography.bodyLarge)
                     Switch(checked = isIncognito, onCheckedChange = { isIncognito = it })
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                    if (onDelete != null) {
+                        TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                            Text("Delete")
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
-                    Spacer(modifier = Modifier.width(Spacing.Small))
-                    Button(
-                        onClick = {
-                            if (name.isNotBlank()) {
-                                onCreate(name.trim(), selectedColor, selectedIcon, isIncognito)
-                            }
-                        },
-                        enabled = name.isNotBlank(),
-                        shape = RoundedCornerShape(Radius.Medium)
-                    ) {
-                        Text("Create")
+                    
+                    Row {
+                        TextButton(onClick = onDismiss) {
+                            Text("Cancel")
+                        }
+                        Spacer(modifier = Modifier.width(Spacing.Small))
+                        Button(
+                            onClick = {
+                                if (name.isNotBlank()) {
+                                    onSave(name.trim(), selectedColor, selectedIcon, isIncognito)
+                                }
+                            },
+                            enabled = name.isNotBlank(),
+                            shape = RoundedCornerShape(Radius.Medium)
+                        ) {
+                            Text("Save")
+                        }
                     }
                 }
             }
@@ -167,6 +179,7 @@ fun CreateIdentityDialog(
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
+    identities: List<com.example.model.BrowserIdentity>,
     searchEngine: String,
     theme: String,
     tabLayoutStyle: String,
@@ -181,6 +194,8 @@ fun SettingsDialog(
     onBlockThirdPartyCookiesChange: (Boolean) -> Unit,
     onAutoSelectUrlOnClickChange: (Boolean) -> Unit,
     onEnableJavaScriptChange: (Boolean) -> Unit,
+    onEditIdentity: (com.example.model.BrowserIdentity) -> Unit,
+    onCreateIdentity: () -> Unit,
     onDismiss: () -> Unit,
     onClearData: () -> Unit
 ) {
@@ -214,6 +229,24 @@ fun SettingsDialog(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = Spacing.Large)
                 ) {
+                    item { SettingsCategoryHeader("Profiles & Identities") }
+                    items(identities) { identity ->
+                        SettingsItem(
+                            icon = availableIcons[identity.iconName] ?: Icons.Default.Person,
+                            title = identity.name,
+                            subtitle = if (identity.isIncognito) "Incognito profile" else "Standard profile",
+                            onClick = { onEditIdentity(identity) }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Default.Add,
+                            title = "Add Profile",
+                            subtitle = "Create a new browsing identity",
+                            onClick = onCreateIdentity
+                        )
+                    }
+
                     item { SettingsCategoryHeader("Appearance") }
                     item {
                         SettingsItem(

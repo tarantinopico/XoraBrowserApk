@@ -21,6 +21,9 @@ interface BrowserDao {
     @Query("UPDATE browser_identities SET isActive = (id = :identityId)")
     suspend fun setActiveIdentity(identityId: Long)
 
+    @Delete
+    suspend fun deleteIdentity(identity: BrowserIdentity)
+
     // Tabs
     @Query("SELECT * FROM tabs WHERE identityId = :identityId ORDER BY orderIndex ASC")
     fun getTabsForIdentity(identityId: Long): Flow<List<Tab>>

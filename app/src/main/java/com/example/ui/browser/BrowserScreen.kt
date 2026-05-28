@@ -78,21 +78,38 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
     var showSettings by remember { mutableStateOf(false) }
     var isMenuExpanded by remember { mutableStateOf(false) }
     var showCreateIdentity by remember { mutableStateOf(false) }
+    var editingIdentity by remember { mutableStateOf<com.example.model.BrowserIdentity?>(null) }
     var loadProgress by remember { mutableStateOf(0f) }
     var isLoading by remember { mutableStateOf(false) }
 
     if (showCreateIdentity) {
-        CreateIdentityDialog(
+        IdentityDialog(
             onDismiss = { showCreateIdentity = false },
-            onCreate = { name, color, icon, isIncognito ->
+            onSave = { name, color, icon, isIncognito ->
                 viewModel.createIdentity(name, color, icon, isIncognito)
                 showCreateIdentity = false
             }
         )
     }
 
+    if (editingIdentity != null) {
+        IdentityDialog(
+            initialIdentity = editingIdentity,
+            onDismiss = { editingIdentity = null },
+            onSave = { name, color, icon, isIncognito ->
+                viewModel.updateIdentity(editingIdentity!!.copy(name = name, colorHex = color, iconName = icon, isIncognito = isIncognito))
+                editingIdentity = null
+            },
+            onDelete = {
+                viewModel.deleteIdentity(editingIdentity!!)
+                editingIdentity = null
+            }
+        )
+    }
+
     if (showSettings) {
         SettingsDialog(
+            identities = identities,
             searchEngine = searchEngine,
             theme = theme,
             tabLayoutStyle = tabLayoutStyle,
@@ -107,6 +124,8 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
             onBlockThirdPartyCookiesChange = { viewModel.setBlockThirdPartyCookies(it) },
             onAutoSelectUrlOnClickChange = { viewModel.setAutoSelectUrlOnClick(it) },
             onEnableJavaScriptChange = { viewModel.setEnableJavaScript(it) },
+            onEditIdentity = { editingIdentity = it },
+            onCreateIdentity = { showCreateIdentity = true },
             onDismiss = { showSettings = false },
             onClearData = { viewModel.clearBrowsingData() }
         )
@@ -291,10 +310,6 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                 activeTab = activeTab,
                 onClose = { isMenuExpanded = false },
                 onSwitchIdentity = { viewModel.switchIdentity(it) },
-                onAddIdentity = { 
-                    showCreateIdentity = true
-                    isMenuExpanded = false 
-                },
                 onNewTab = { 
                     viewModel.createNewTab()
                     isMenuExpanded = false
@@ -458,7 +473,6 @@ fun MenuAndTabsPanel(
     activeTab: com.example.model.Tab?,
     onClose: () -> Unit,
     onSwitchIdentity: (Long) -> Unit,
-    onAddIdentity: () -> Unit,
     onNewTab: () -> Unit,
     onBookmarks: () -> Unit,
     onHistory: () -> Unit,
@@ -565,17 +579,6 @@ fun MenuAndTabsPanel(
                                     }
                                 )
                             }
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                leadingIcon = {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                },
-                                text = { Text("Add Identity") },
-                                onClick = {
-                                    onAddIdentity()
-                                    showIdentities = false
-                                }
-                            )
                         }
                     }
                 }

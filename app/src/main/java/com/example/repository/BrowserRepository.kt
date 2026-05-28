@@ -63,6 +63,16 @@ class BrowserRepository(
         return browserDao.insertIdentity(BrowserIdentity(name = name, colorHex = colorHex, iconName = iconName, isIncognito = isIncognito))
     }
 
+    suspend fun updateIdentity(identity: BrowserIdentity) {
+        browserDao.updateIdentity(identity)
+    }
+
+    suspend fun deleteIdentity(identity: BrowserIdentity) {
+        browserDao.clearTabsForIdentity(identity.id)
+        browserDao.clearHistory(identity.id)
+        browserDao.deleteIdentity(identity)
+    }
+
     suspend fun setActiveIdentity(id: Long) {
         browserDao.setActiveIdentity(id)
     }

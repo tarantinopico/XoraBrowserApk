@@ -104,6 +104,22 @@ class BrowserViewModel(
         }
     }
 
+    fun updateIdentity(identity: BrowserIdentity) {
+        viewModelScope.launch {
+            repository.updateIdentity(identity)
+        }
+    }
+
+    fun deleteIdentity(identity: BrowserIdentity) {
+        viewModelScope.launch {
+            repository.deleteIdentity(identity)
+            val first = repository.identities.firstOrNull()?.firstOrNull()
+            if (first != null && activeIdentity.value?.id == identity.id) {
+                repository.setActiveIdentity(first.id)
+            }
+        }
+    }
+
     fun switchIdentity(identityId: Long) {
         viewModelScope.launch {
             repository.setActiveIdentity(identityId)
