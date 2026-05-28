@@ -21,7 +21,16 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import com.example.ui.theme.Spacing
+import com.example.ui.theme.Radius
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +47,7 @@ import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrowserScreen(modifier: Modifier = Modifier) {
     val viewModel: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory)
@@ -64,23 +74,24 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
     }
 
     var showSettings by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     if (showSettings) {
         AlertDialog(
             onDismissRequest = { showSettings = false },
-            title = { Text("Settings") },
+            title = { Text("Settings", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
                     TextButton(onClick = { 
                         showSettings = false
                         viewModel.clearBrowsingData() 
-                    }) {
+                    }, modifier = Modifier.fillMaxWidth()) {
                         Text("Clear Browsing Data (History & Tabs)")
                     }
-                    TextButton(onClick = { showSettings = false }) {
+                    TextButton(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth()) {
                         Text("Default Search Engine: Google")
                     }
-                    TextButton(onClick = { showSettings = false }) {
+                    TextButton(onClick = { showSettings = false }, modifier = Modifier.fillMaxWidth()) {
                         Text("Theme: Auto")
                     }
                 }
@@ -93,20 +104,87 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
         )
     }
 
+    if (showMenu) {
+        ModalBottomSheet(
+            onDismissRequest = { showMenu = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.Large, start = Spacing.Medium, end = Spacing.Medium)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
+                        showMenu = false
+                        viewModel.createNewTab()
+                    }.padding(Spacing.Small)) {
+                        Surface(shape = RoundedCornerShape(Radius.Medium), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Default.Add, contentDescription = "New Tab", modifier = Modifier.padding(12.dp))
+                        }
+                        Spacer(modifier = Modifier.height(Spacing.ExtraSmall))
+                        Text("New Tab", style = MaterialTheme.typography.labelSmall)
+                    }
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
+                        showMenu = false
+                        viewModel.createIdentity("Incognito", isIncognito = true)
+                    }.padding(Spacing.Small)) {
+                        Surface(shape = RoundedCornerShape(Radius.Medium), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Default.Lock, contentDescription = "Incognito", modifier = Modifier.padding(12.dp))
+                        }
+                        Spacer(modifier = Modifier.height(Spacing.ExtraSmall))
+                        Text("Incognito", style = MaterialTheme.typography.labelSmall)
+                    }
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
+                         showMenu = false
+                    }.padding(Spacing.Small)) {
+                        Surface(shape = RoundedCornerShape(Radius.Medium), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Default.Star, contentDescription = "Bookmarks", modifier = Modifier.padding(12.dp))
+                        }
+                        Spacer(modifier = Modifier.height(Spacing.ExtraSmall))
+                        Text("Bookmarks", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(Spacing.Medium))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(Spacing.Small))
+                
+                ListItem(
+                    headlineContent = { Text("Downloads") },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    modifier = Modifier.clickable { showMenu = false }
+                )
+                ListItem(
+                    headlineContent = { Text("Settings") },
+                    leadingContent = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    modifier = Modifier.clickable { 
+                        showMenu = false
+                        showSettings = true 
+                    }
+                )
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
         
         // ------------- Hidden Panel (Tabs & Identities) -------------
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(with(density) { offsetY.value.toDp() } + 64.dp)
+                .height(panelMaxHeightDp)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(16.dp)
+                .padding(horizontal = Spacing.Medium, vertical = Spacing.Large)
         ) {
              Text("Identities", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-             Spacer(modifier = Modifier.height(8.dp))
-             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                 identities.forEach { identity ->
+             Spacer(modifier = Modifier.height(Spacing.Small))
+             LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+                 items(identities) { identity ->
                      val selected = identity.id == activeIdentity?.id
                      FilterChip(
                          selected = selected,
@@ -119,47 +197,56 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                          label = { 
                              Row(verticalAlignment = Alignment.CenterVertically) {
                                  if (identity.isIncognito) {
-                                     Icon(Icons.Default.Lock, contentDescription = "Incognito", modifier = Modifier.size(16.dp))
-                                     Spacer(modifier = Modifier.width(4.dp))
+                                     Icon(Icons.Default.Lock, contentDescription = "Incognito", modifier = Modifier.size(14.dp))
+                                     Spacer(modifier = Modifier.width(Spacing.ExtraSmall))
                                  }
-                                 Text(identity.name)
+                                 Text(identity.name, style = MaterialTheme.typography.labelMedium)
                              }
-                         }
+                         },
+                         shape = RoundedCornerShape(Radius.Medium)
                      )
                  }
                  
-                 // ADD IDENTITY BUTTON
-                 FilterChip(
-                     selected = false,
-                     onClick = { viewModel.createIdentity("Profile ${identities.size + 1}") },
-                     label = { Text("+ Add") }
-                 )
+                 item {
+                     // ADD IDENTITY BUTTON
+                     FilterChip(
+                         selected = false,
+                         onClick = { viewModel.createIdentity("Profile ${identities.size + 1}") },
+                         label = { Text("+ Add", style = MaterialTheme.typography.labelMedium) },
+                         shape = RoundedCornerShape(Radius.Medium)
+                     )
+                 }
              }
 
-             Spacer(modifier = Modifier.height(16.dp))
+             Spacer(modifier = Modifier.height(Spacing.Large))
              
              Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                  Text("Open Tabs", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                 TextButton(onClick = { 
+                 FilledTonalButton(onClick = { 
                      viewModel.createNewTab()
                      coroutineScope.launch {
                          offsetY.animateTo(0f, animationSpec = androidx.compose.animation.core.spring())
                      } 
-                 }) {
+                 }, shape = RoundedCornerShape(Radius.ExtraLarge)) {
+                     Icon(Icons.Default.Add, contentDescription = "New Tab", modifier = Modifier.size(16.dp))
+                     Spacer(modifier = Modifier.width(Spacing.ExtraSmall))
                      Text("New Tab")
                  }
              }
              
-             Spacer(modifier = Modifier.height(8.dp))
+             Spacer(modifier = Modifier.height(Spacing.Medium))
              
              // Tabs list
-             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+             LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
                  items(tabs) { tab ->
                      val isSelected = tab.id == activeTab?.id
-                     Surface(
-                         shape = RoundedCornerShape(12.dp),
-                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                         modifier = Modifier.width(140.dp).height(100.dp),
+                     Card(
+                         shape = RoundedCornerShape(Radius.Medium),
+                         colors = CardDefaults.cardColors(
+                             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                         ),
+                         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp),
+                         modifier = Modifier.width(160.dp).height(120.dp),
                          onClick = {
                              viewModel.switchTab(tab.id)
                              coroutineScope.launch {
@@ -167,10 +254,19 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                              }
                          }
                      ) {
-                         Box(modifier = Modifier.padding(8.dp)) {
-                             Text(tab.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, modifier = Modifier.align(Alignment.TopStart))
-                             IconButton(onClick = { viewModel.closeTab(tab) }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) {
-                                 Icon(Icons.Default.Refresh, contentDescription = "Close", modifier = Modifier.size(16.dp))
+                         Box(modifier = Modifier.fillMaxSize().padding(Spacing.Medium)) {
+                             Text(
+                                 tab.title, 
+                                 style = MaterialTheme.typography.bodyMedium, 
+                                 maxLines = 2, 
+                                 color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                 modifier = Modifier.align(Alignment.TopStart).padding(end = 24.dp)
+                             )
+                             IconButton(
+                                 onClick = { viewModel.closeTab(tab) }, 
+                                 modifier = Modifier.align(Alignment.TopEnd).size(24.dp).offset(x = 8.dp, y = (-8).dp)
+                             ) {
+                                 Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
                              }
                          }
                      }
@@ -199,6 +295,7 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
                 onNewTab = { viewModel.createNewTab() },
                 onNewIncognito = { viewModel.createIdentity("Incognito", isIncognito = true) },
                 onOpenSettings = { showSettings = true },
+                onOpenMenu = { showMenu = true },
                 onBack = { if (webView?.canGoBack() == true) webView?.goBack() },
                 modifier = Modifier
                     .draggable(
@@ -281,6 +378,7 @@ fun BrowserAddressBar(
     onNewTab: () -> Unit,
     onNewIncognito: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenMenu: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -304,7 +402,7 @@ fun BrowserAddressBar(
                 /* Emit back event, handled below, or just pass back action */
                 onBack()
             }) {
-                 Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = if (isIncognito) Color.White else LocalContentColor.current)
+                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = if (isIncognito) Color.White else LocalContentColor.current)
             }
             
             // Domain input
@@ -353,58 +451,8 @@ fun BrowserAddressBar(
                 }
             )
 
-            var showMenu by remember { mutableStateOf(false) }
-
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu", tint = if (isIncognito) Color.White else LocalContentColor.current)
-                }
-                
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier.width(220.dp)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("New Tab") },
-                        onClick = { 
-                            showMenu = false
-                            onNewTab()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("New Incognito Tab") },
-                        onClick = { 
-                            showMenu = false
-                            onNewIncognito()
-                        }
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text("Bookmarks") },
-                        onClick = { showMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("History") },
-                        onClick = { showMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Downloads") },
-                        onClick = { showMenu = false }
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text("Desktop site") },
-                        onClick = { showMenu = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Settings") },
-                        onClick = { 
-                            showMenu = false
-                            onOpenSettings()
-                        }
-                    )
-                }
+            IconButton(onClick = onOpenMenu) {
+                Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu", tint = if (isIncognito) Color.White else LocalContentColor.current)
             }
         }
     }
