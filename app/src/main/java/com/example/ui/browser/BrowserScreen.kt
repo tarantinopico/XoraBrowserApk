@@ -13,6 +13,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -63,6 +66,11 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
 
     val searchEngine by viewModel.searchEngine.collectAsState()
     val theme by viewModel.theme.collectAsState()
+    val tabLayoutStyle by viewModel.tabLayoutStyle.collectAsState()
+    val showSearchSuggestions by viewModel.showSearchSuggestions.collectAsState()
+    val blockThirdPartyCookies by viewModel.blockThirdPartyCookies.collectAsState()
+    val autoSelectUrlOnClick by viewModel.autoSelectUrlOnClick.collectAsState()
+    val enableJavaScript by viewModel.enableJavaScript.collectAsState()
 
     var webView by remember { mutableStateOf<WebView?>(null) }
     val focusManager = LocalFocusManager.current
@@ -87,8 +95,18 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
         SettingsDialog(
             searchEngine = searchEngine,
             theme = theme,
+            tabLayoutStyle = tabLayoutStyle,
+            showSearchSuggestions = showSearchSuggestions,
+            blockThirdPartyCookies = blockThirdPartyCookies,
+            autoSelectUrlOnClick = autoSelectUrlOnClick,
+            enableJavaScript = enableJavaScript,
             onSearchEngineChange = { viewModel.setSearchEngine(it) },
             onThemeChange = { viewModel.setTheme(it) },
+            onTabLayoutStyleChange = { viewModel.setTabLayoutStyle(it) },
+            onShowSearchSuggestionsChange = { viewModel.setShowSearchSuggestions(it) },
+            onBlockThirdPartyCookiesChange = { viewModel.setBlockThirdPartyCookies(it) },
+            onAutoSelectUrlOnClickChange = { viewModel.setAutoSelectUrlOnClick(it) },
+            onEnableJavaScriptChange = { viewModel.setEnableJavaScript(it) },
             onDismiss = { showSettings = false },
             onClearData = { viewModel.clearBrowsingData() }
         )
@@ -108,6 +126,8 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                 url = activeTab?.url ?: "",
                 isFocused = isAddressBarFocused,
                 isIncognito = activeIdentity?.isIncognito ?: false,
+                autoSelectUrlOnClick = autoSelectUrlOnClick,
+                showSearchSuggestions = showSearchSuggestions,
                 onFocusChanged = { viewModel.setAddressBarFocused(it) },
                 onUrlSubmitted = { 
                     viewModel.onUrlSubmitted(it)
@@ -176,8 +196,11 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                             AndroidView(
                                 factory = { context ->
                                     WebView(context).apply {
-                                        settings.javaScriptEnabled = true
+                                        settings.javaScriptEnabled = enableJavaScript
                                         settings.domStorageEnabled = true
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                                            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(this, !blockThirdPartyCookies)
+                                        }
                                         webChromeClient = object : android.webkit.WebChromeClient() {
                                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                                 super.onProgressChanged(view, newProgress)
@@ -261,6 +284,7 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
             MenuAndTabsPanel(
+                tabLayoutStyle = tabLayoutStyle,
                 identities = identities,
                 activeIdentity = activeIdentity,
                 tabs = tabs,
@@ -297,6 +321,8 @@ fun BrowserAddressBar(
     url: String,
     isFocused: Boolean,
     isIncognito: Boolean,
+    autoSelectUrlOnClick: Boolean,
+    showSearchSuggestions: Boolean,
     onFocusChanged: (Boolean) -> Unit,
     onUrlSubmitted: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -307,8 +333,15 @@ fun BrowserAddressBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var inputText by remember(url, isFocused) { 
-        mutableStateOf(if (url.startsWith("xora://") || url == "about:blank") "" else if (isFocused) url else url.removePrefix("https://").removePrefix("http://")) 
+    val initialText = if (url.startsWith("xora://") || url == "about:blank") "" else if (isFocused) url else url.removePrefix("https://").removePrefix("http://")
+    
+    var textFieldValue by remember(url, isFocused) { 
+        mutableStateOf(
+            androidx.compose.ui.text.input.TextFieldValue(
+                text = initialText,
+                selection = if (isFocused && autoSelectUrlOnClick && initialText.isNotEmpty()) androidx.compose.ui.text.TextRange(0, initialText.length) else androidx.compose.ui.text.TextRange(initialText.length)
+            )
+        )
     }
 
     Surface(
@@ -332,8 +365,8 @@ fun BrowserAddressBar(
                 
                 // Domain input
                 OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
+                    value = textFieldValue,
+                    onValueChange = { textFieldValue = it },
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp)
@@ -354,7 +387,7 @@ fun BrowserAddressBar(
                         imeAction = ImeAction.Go
                     ),
                     keyboardActions = KeyboardActions(
-                        onGo = { if(inputText.isNotBlank()) onUrlSubmitted(inputText) }
+                        onGo = { if(textFieldValue.text.isNotBlank()) onUrlSubmitted(textFieldValue.text) }
                     ),
                     leadingIcon = {
                         Icon(
@@ -365,8 +398,8 @@ fun BrowserAddressBar(
                         )
                     },
                     trailingIcon = {
-                        if (isFocused && inputText.isNotEmpty()) {
-                            IconButton(onClick = { inputText = "" }, modifier = Modifier.size(32.dp)) {
+                        if (isFocused && textFieldValue.text.isNotEmpty()) {
+                            IconButton(onClick = { textFieldValue = androidx.compose.ui.text.input.TextFieldValue("") }, modifier = Modifier.size(32.dp)) {
                                 Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(16.dp), tint = if (isIncognito) Color.White else LocalContentColor.current)
                             }
                         } else if (!isFocused) {
@@ -382,18 +415,18 @@ fun BrowserAddressBar(
                 }
             }
 
-            AnimatedVisibility(visible = isFocused && inputText.isNotBlank()) {
+            AnimatedVisibility(visible = isFocused && textFieldValue.text.isNotBlank() && showSearchSuggestions) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    val isUrlRegex = android.util.Patterns.WEB_URL.matcher(inputText).matches()
+                    val isUrlRegex = android.util.Patterns.WEB_URL.matcher(textFieldValue.text).matches()
                     
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onUrlSubmitted(inputText) }
+                            .clickable { onUrlSubmitted(textFieldValue.text) }
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -405,7 +438,7 @@ fun BrowserAddressBar(
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
-                            text = if (isUrlRegex) "Go to $inputText" else "Search for \"$inputText\"",
+                            text = if (isUrlRegex) "Go to ${textFieldValue.text}" else "Search for \"${textFieldValue.text}\"",
                             style = MaterialTheme.typography.bodyLarge,
                             color = if(isIncognito) Color.White else MaterialTheme.colorScheme.onSurface
                         )
@@ -418,6 +451,7 @@ fun BrowserAddressBar(
 
 @Composable
 fun MenuAndTabsPanel(
+    tabLayoutStyle: String,
     identities: List<com.example.model.BrowserIdentity>,
     activeIdentity: com.example.model.BrowserIdentity?,
     tabs: List<com.example.model.Tab>,
@@ -565,17 +599,36 @@ fun MenuAndTabsPanel(
             Spacer(modifier = Modifier.height(Spacing.Medium))
             
             // Tabs Grid/Row
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
-                contentPadding = PaddingValues(bottom = Spacing.Small)
-            ) {
-                items(tabs) { tab ->
-                    TabCard(
-                        tab = tab,
-                        isActive = activeTab?.id == tab.id,
-                        onClick = { onSwitchTab(tab.id) },
-                        onClose = { onCloseTab(tab) }
-                    )
+            if (tabLayoutStyle == "Grid") {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+                    contentPadding = PaddingValues(bottom = Spacing.Small),
+                    modifier = Modifier.height(300.dp)
+                ) {
+                    items(tabs) { tab ->
+                        TabCard(
+                            tab = tab,
+                            isActive = activeTab?.id == tab.id,
+                            onClick = { onSwitchTab(tab.id) },
+                            onClose = { onCloseTab(tab) }
+                        )
+                    }
+                }
+            } else {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+                    contentPadding = PaddingValues(bottom = Spacing.Small)
+                ) {
+                    items(tabs) { tab ->
+                        TabCard(
+                            tab = tab,
+                            isActive = activeTab?.id == tab.id,
+                            onClick = { onSwitchTab(tab.id) },
+                            onClose = { onCloseTab(tab) }
+                        )
+                    }
                 }
             }
         }

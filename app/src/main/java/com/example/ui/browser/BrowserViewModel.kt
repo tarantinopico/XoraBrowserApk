@@ -42,6 +42,11 @@ class BrowserViewModel(
 
     val searchEngine = repository.searchEngine.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Google")
     val theme = repository.theme.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Auto")
+    val tabLayoutStyle = repository.tabLayoutStyle.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Row")
+    val showSearchSuggestions = repository.showSearchSuggestions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val blockThirdPartyCookies = repository.blockThirdPartyCookies.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val autoSelectUrlOnClick = repository.autoSelectUrlOnClick.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+    val enableJavaScript = repository.enableJavaScript.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     fun setSearchEngine(engine: String) {
         repository.setSearchEngine(engine)
@@ -49,6 +54,26 @@ class BrowserViewModel(
 
     fun setTheme(themeStr: String) {
         repository.setTheme(themeStr)
+    }
+
+    fun setTabLayoutStyle(style: String) {
+        repository.setTabLayoutStyle(style)
+    }
+
+    fun setShowSearchSuggestions(show: Boolean) {
+        repository.setShowSearchSuggestions(show)
+    }
+
+    fun setBlockThirdPartyCookies(block: Boolean) {
+        repository.setBlockThirdPartyCookies(block)
+    }
+
+    fun setAutoSelectUrlOnClick(autoSelect: Boolean) {
+        repository.setAutoSelectUrlOnClick(autoSelect)
+    }
+
+    fun setEnableJavaScript(enable: Boolean) {
+        repository.setEnableJavaScript(enable)
     }
 
     private val _isAddressBarFocused = MutableStateFlow(false)

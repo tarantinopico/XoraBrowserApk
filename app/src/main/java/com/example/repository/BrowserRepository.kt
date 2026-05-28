@@ -18,6 +18,11 @@ class BrowserRepository(
 
     val searchEngine: Flow<String> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getString("search_engine", "Google") ?: "Google")
     val theme: Flow<String> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getString("theme", "Auto") ?: "Auto")
+    val tabLayoutStyle: Flow<String> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getString("tab_layout_style", "Row") ?: "Row")
+    val showSearchSuggestions: Flow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean("show_search_suggestions", true))
+    val blockThirdPartyCookies: Flow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean("block_third_party_cookies", false))
+    val autoSelectUrlOnClick: Flow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean("auto_select_url_on_click", true))
+    val enableJavaScript: Flow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean("enable_javascript", true))
 
     fun setSearchEngine(engine: String) {
         prefs.edit().putString("search_engine", engine).apply()
@@ -27,6 +32,31 @@ class BrowserRepository(
     fun setTheme(themeStr: String) {
         prefs.edit().putString("theme", themeStr).apply()
         (theme as kotlinx.coroutines.flow.MutableStateFlow).value = themeStr
+    }
+
+    fun setTabLayoutStyle(style: String) {
+        prefs.edit().putString("tab_layout_style", style).apply()
+        (tabLayoutStyle as kotlinx.coroutines.flow.MutableStateFlow).value = style
+    }
+
+    fun setShowSearchSuggestions(show: Boolean) {
+        prefs.edit().putBoolean("show_search_suggestions", show).apply()
+        (showSearchSuggestions as kotlinx.coroutines.flow.MutableStateFlow).value = show
+    }
+
+    fun setBlockThirdPartyCookies(block: Boolean) {
+        prefs.edit().putBoolean("block_third_party_cookies", block).apply()
+        (blockThirdPartyCookies as kotlinx.coroutines.flow.MutableStateFlow).value = block
+    }
+
+    fun setAutoSelectUrlOnClick(autoSelect: Boolean) {
+        prefs.edit().putBoolean("auto_select_url_on_click", autoSelect).apply()
+        (autoSelectUrlOnClick as kotlinx.coroutines.flow.MutableStateFlow).value = autoSelect
+    }
+
+    fun setEnableJavaScript(enable: Boolean) {
+        prefs.edit().putBoolean("enable_javascript", enable).apply()
+        (enableJavaScript as kotlinx.coroutines.flow.MutableStateFlow).value = enable
     }
 
     suspend fun createIdentity(name: String, colorHex: String, iconName: String = "Person", isIncognito: Boolean = false): Long {
