@@ -595,10 +595,10 @@ fun BrowserAddressBar(
                         .onFocusChanged { onFocusChanged(it.isFocused) },
                     shape = RoundedCornerShape(26.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = (if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant).copy(alpha = 0.5f),
-                        unfocusedContainerColor = (if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant).copy(alpha = 0.5f),
+        focusedBorderColor = Color.White.copy(alpha = 0.3f),
+        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+        focusedContainerColor = Color.White.copy(alpha = if (isIncognito) 0.1f else 0.25f),
+        unfocusedContainerColor = Color.White.copy(alpha = if (isIncognito) 0.05f else 0.15f),
                         focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface
                     ),
@@ -749,8 +749,9 @@ fun MenuAndTabsPanel(
             // Identity Card
             Surface(
                 shape = RoundedCornerShape(Radius.Large),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.fillMaxWidth()
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha=0.15f)),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.Large)).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(0.2f), Color.Transparent)))
             ) {
                 Row(
                     modifier = Modifier.padding(Spacing.Medium),
@@ -928,7 +929,7 @@ fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, 
             Column(modifier = Modifier.fillMaxSize()) {
             // Tab Header
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -940,11 +941,11 @@ fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, 
                         tab.title,
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = onClose, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -952,7 +953,7 @@ fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    .background(Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
                 val iconUrl = "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${tab.url}&size=128"

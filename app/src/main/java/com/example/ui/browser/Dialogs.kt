@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -58,9 +59,11 @@ fun IdentityDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(Radius.ExtraLarge),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth()
+            color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp).copy(alpha = 0.8f),
+            tonalElevation = 0.dp,
+            shadowElevation = 24.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.ExtraLarge)).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(0.2f), Color.Transparent)))
         ) {
             Column(
                 modifier = Modifier
@@ -190,8 +193,11 @@ fun BookmarkDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(Radius.ExtraLarge),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp).copy(alpha = 0.8f),
+            tonalElevation = 0.dp,
+            shadowElevation = 24.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.ExtraLarge)).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color.White.copy(0.2f), Color.Transparent)))
         ) {
             Column(
                 modifier = Modifier.padding(Spacing.Large),
@@ -276,8 +282,9 @@ fun SettingsDialog(
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            color = MaterialTheme.colorScheme.background.copy(alpha = 0.85f)
         ) {
+            Box(modifier = Modifier.fillMaxSize().blur(20.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(0.1f), Color.Transparent))))
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -292,7 +299,7 @@ fun SettingsDialog(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
+                        containerColor = Color.Transparent
                     )
                 )
 
