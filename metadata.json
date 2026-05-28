@@ -1,0 +1,6 @@
+{
+  "name": "Xora",
+  "description": "Modern gesture-driven Android WebView browser with multi-identity support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
