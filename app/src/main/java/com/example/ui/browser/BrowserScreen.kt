@@ -4,6 +4,12 @@ import android.graphics.Bitmap
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -44,12 +50,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
@@ -131,6 +142,8 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
         )
     }
 
+    val haptic = LocalHapticFeedback.current
+    
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
         
         // ------------- Main Content (Top Chrome + WebView) -------------
@@ -157,7 +170,24 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                 onNewIncognito = { viewModel.createIdentity("Incognito", isIncognito = true) },
                 onOpenSettings = { showSettings = true },
                 onOpenMenu = { isMenuExpanded = !isMenuExpanded },
-                onBack = { if (webView?.canGoBack() == true) webView?.goBack() }
+                onBack = { if (webView?.canGoBack() == true) webView?.goBack() },
+                onSwipeLeft = { // Swipe left -> Next tab
+                    val currentIndex = tabs.indexOfFirst { it.id == activeTab?.id }
+                    if (currentIndex != -1 && currentIndex < tabs.size - 1) {
+                        viewModel.switchTab(tabs[currentIndex + 1].id)
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                },
+                onSwipeRight = { // Swipe right -> Previous tab
+                    val currentIndex = tabs.indexOfFirst { it.id == activeTab?.id }
+                    if (currentIndex > 0) {
+                        viewModel.switchTab(tabs[currentIndex - 1].id)
+                    } else {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                },
+                onSwipeDown = { isMenuExpanded = true }
             )
 
             AnimatedVisibility(visible = isLoading) {
@@ -171,13 +201,34 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
 
             // Web View Area
             Box(modifier = Modifier.fillMaxSize().weight(1f)) {
-                if (activeTab != null) {
-                    if (activeTab!!.url == "xora://newtab" || activeTab!!.url == "about:blank") {
-                        // Premium New Tab Page
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .imePadding()
+                AnimatedContent(
+                    targetState = activeTab,
+                    transitionSpec = {
+                        if (targetState == null || initialState == null) {
+                            fadeIn() togetherWith fadeOut()
+                        } else {
+                            val initialIndex = tabs.indexOfFirst { it.id == initialState!!.id }
+                            val targetIndex = tabs.indexOfFirst { it.id == targetState!!.id }
+                            // Determine direction dynamically if switching via menu. If from swipe, use swipeDirection.
+                            // However, we can just infer it solely from the indices for consistency!
+                            val direction = if (targetIndex > initialIndex) -1 else 1
+                            if (direction == -1) {
+                                slideInHorizontally { width -> width } + fadeIn() togetherWith slideOutHorizontally { width -> -width } + fadeOut()
+                            } else {
+                                slideInHorizontally { width -> -width } + fadeIn() togetherWith slideOutHorizontally { width -> width } + fadeOut()
+                            }
+                        }
+                    },
+                    label = "TabTransition",
+                    modifier = Modifier.fillMaxSize()
+                ) { currentTab ->
+                    if (currentTab != null) {
+                        if (currentTab.url == "xora://newtab" || currentTab.url == "about:blank") {
+                            // Premium New Tab Page
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .imePadding()
                                 .padding(Spacing.Large),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -209,7 +260,7 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                             )
                         }
                     } else {
-                        androidx.compose.runtime.key(activeTab!!.id) {
+                        androidx.compose.runtime.key(currentTab.id) {
                             var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
                             
                             AndroidView(
@@ -264,13 +315,13 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                                         }
                                         
                                         webView = this
-                                        lastLoadedUrl = activeTab!!.url
-                                        loadUrl(activeTab!!.url)
+                                        lastLoadedUrl = currentTab.url
+                                        loadUrl(currentTab.url)
                                     }
                                 },
                                 update = { view ->
-                                     val targetedUrl = activeTab?.url
-                                     if (targetedUrl != null && lastLoadedUrl != targetedUrl && !isAddressBarFocused && targetedUrl != "xora://newtab" && targetedUrl != "about:blank") {
+                                     val targetedUrl = currentTab.url
+                                     if (lastLoadedUrl != targetedUrl && !isAddressBarFocused && targetedUrl != "xora://newtab" && targetedUrl != "about:blank") {
                                          lastLoadedUrl = targetedUrl
                                          view.loadUrl(targetedUrl)
                                      }
@@ -279,9 +330,10 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                             )
                         }
                     }
-                }
-            }
-        }
+                } // End if currentTab != null
+            } // End AnimatedContent
+            } // End Box (WebView Area)
+        } // End Column (Main Content)
         
         // ------------- Menu Overlay -------------
         if (isMenuExpanded) {
@@ -346,6 +398,9 @@ fun BrowserAddressBar(
     onOpenSettings: () -> Unit,
     onOpenMenu: () -> Unit,
     onBack: () -> Unit,
+    onSwipeLeft: () -> Unit = {},
+    onSwipeRight: () -> Unit = {},
+    onSwipeDown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val initialText = if (url.startsWith("xora://") || url == "about:blank") "" else if (isFocused) url else url.removePrefix("https://").removePrefix("http://")
@@ -363,7 +418,36 @@ fun BrowserAddressBar(
         color = if (isIncognito) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         contentColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(isFocused) { // Only enable swipe gestures when text field is not focused
+                if (!isFocused) {
+                    var offsetX = 0f
+                    var offsetY = 0f
+                    detectDragGestures(
+                        onDragStart = {
+                            offsetX = 0f
+                            offsetY = 0f
+                        },
+                        onDragEnd = {
+                            if (abs(offsetY) > abs(offsetX) && offsetY > 50f) {
+                                onSwipeDown()
+                            } else if (abs(offsetX) > abs(offsetY) && abs(offsetX) > 50f) {
+                                if (offsetX > 0) {
+                                    onSwipeRight()
+                                } else {
+                                    onSwipeLeft()
+                                }
+                            }
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount.x
+                            offsetY += dragAmount.y
+                        }
+                    )
+                }
+            }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
