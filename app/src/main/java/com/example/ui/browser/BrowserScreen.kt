@@ -12,6 +12,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -242,27 +243,55 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                     if (currentTab != null) {
                         if (currentTab.url == "xora://newtab" || currentTab.url == "about:blank") {
                             // Premium New Tab Page
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .imePadding()
-                                .padding(Spacing.Large),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            val activeColor = activeIdentity?.colorHex?.let { kotlin.runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: MaterialTheme.colorScheme.primary
-                            val vector = availableIcons[activeIdentity?.iconName] ?: Icons.Default.Person
-                            
-                            Icon(
-                                imageVector = if (activeIdentity?.isIncognito == true) Icons.Default.Lock else vector,
-                                contentDescription = null,
-                                tint = activeColor,
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .background(activeColor.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
-                                    .padding(20.dp)
-                            )
-                            Spacer(modifier = Modifier.height(Spacing.Large))
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                // Background blur effects
+                                val activeColor = activeIdentity?.colorHex?.let { kotlin.runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: MaterialTheme.colorScheme.primary
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .offset(x = (-50).dp, y = 50.dp)
+                                        .size(200.dp)
+                                        .blur(80.dp)
+                                        .background(activeColor.copy(alpha = 0.2f), shape = CircleShape)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .offset(x = 50.dp, y = (-100).dp)
+                                        .size(250.dp)
+                                        .blur(100.dp)
+                                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f), shape = CircleShape)
+                                )
+                                
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .imePadding()
+                                        .padding(Spacing.Large),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    val vector = availableIcons[activeIdentity?.iconName] ?: Icons.Default.Person
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .size(96.dp)
+                                            .clip(CircleShape)
+                                            .background(activeColor.copy(alpha = 0.15f))
+                                            .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                                                colors = listOf(Color.White.copy(alpha = 0.3f), Color.Transparent)
+                                            ))
+                                            .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (activeIdentity?.isIncognito == true) Icons.Default.Lock else vector,
+                                            contentDescription = null,
+                                            tint = activeColor,
+                                            modifier = Modifier.size(48.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(Spacing.Large))
                             Text(
                                 "Welcome to Xora",
                                 style = MaterialTheme.typography.headlineMedium,
@@ -337,6 +366,7 @@ fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = v
                                     }
                                 }
                             }
+                            } // End Box added for background glow
                         }
                     } else {
                         androidx.compose.runtime.key(currentTab.id) {
@@ -498,12 +528,21 @@ fun BrowserAddressBar(
     }
 
     Surface(
-        color = if (isIncognito) Color(0xFF121212) else MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-        shadowElevation = 4.dp,
+        color = if (isIncognito) Color(0xFF1E1E1E).copy(alpha = 0.85f) else MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp).copy(alpha = 0.85f),
+        shadowElevation = 8.dp,
         tonalElevation = 6.dp,
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
         contentColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface,
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.15f),
+                    Color.Transparent
+                )
+            ))
             .pointerInput(isFocused) { // Only enable swipe gestures when text field is not focused
                 if (!isFocused) {
                     var offsetX = 0f
@@ -556,10 +595,10 @@ fun BrowserAddressBar(
                         .onFocusChanged { onFocusChanged(it.isFocused) },
                     shape = RoundedCornerShape(26.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (isIncognito) Color.Gray else MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = Color.Transparent,
                         unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = (if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant).copy(alpha = 0.5f),
+                        unfocusedContainerColor = (if (isIncognito) Color(0xFF242424) else MaterialTheme.colorScheme.surfaceVariant).copy(alpha = 0.5f),
                         focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
                         unfocusedTextColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface
                     ),
@@ -608,28 +647,40 @@ fun BrowserAddressBar(
                 ) {
                     val isUrlRegex = android.util.Patterns.WEB_URL.matcher(textFieldValue.text).matches()
                     
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onUrlSubmitted(textFieldValue.text) }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isUrlRegex) Icons.Default.Lock else Icons.Default.Search,
-                            contentDescription = null,
-                            tint = if(isIncognito) Color.Gray else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = if (isUrlRegex) "Go to ${textFieldValue.text}" else "Search for \"${textFieldValue.text}\"",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if(isIncognito) Color.White else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                        Surface(
+                            shape = RoundedCornerShape(32.dp),
+                            color = if (isIncognito) Color(0xFF1E1E1E).copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.2f),
+                                        Color.Transparent
+                                    )
+                                ))
+                                .clickable { onUrlSubmitted(textFieldValue.text) }
+                                .padding(16.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isUrlRegex) Icons.Default.Lock else Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = if(isIncognito) Color.Gray else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = if (isUrlRegex) "Go to ${textFieldValue.text}" else "Search for \"${textFieldValue.text}\"",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if(isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                )
+                            }
+                        }
                 }
             }
         }
@@ -655,10 +706,17 @@ fun MenuAndTabsPanel(
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Small, vertical = Spacing.Small),
         shape = RoundedCornerShape(Radius.ExtraLarge),
-        color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.85f),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp).copy(alpha = 0.65f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
         tonalElevation = 0.dp,
-        shadowElevation = 16.dp
+        shadowElevation = 24.dp
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .blur(24.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -821,15 +879,26 @@ fun ActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Str
     ) {
         Surface(
             shape = androidx.compose.foundation.shape.CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
             modifier = Modifier.size(56.dp)
         ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Box(
+                contentAlignment = Alignment.Center, 
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    ))
+            ) {
+                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
     }
 }
 
@@ -837,16 +906,26 @@ fun ActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Str
 fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, onClose: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(Radius.Large),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = if (isActive) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shadowElevation = if (isActive) 8.dp else 2.dp,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        border = if (isActive) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha=0.15f)),
+        shadowElevation = if (isActive) 12.dp else 4.dp,
         modifier = Modifier
             .width(140.dp)
             .height(180.dp)
             .clip(RoundedCornerShape(Radius.Large))
             .clickable(onClick = onClick)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.2f),
+                        Color.Transparent
+                    )
+                ))
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
             // Tab Header
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -885,6 +964,7 @@ fun TabCard(tab: com.example.model.Tab, isActive: Boolean, onClick: () -> Unit, 
                     error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_crop) // Placeholder
                 )
             }
+        }
         }
     }
 }
