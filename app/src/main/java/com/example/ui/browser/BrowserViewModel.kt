@@ -64,8 +64,8 @@ class BrowserViewModel(
                     val personalId = repository.createIdentity("Personal", "#43A047")
                     
                     // add default tabs
-                    val tabId1 = repository.addTab(id, "Google", "https://www.google.com", 0, isActive = true)
-                    val tabId2 = repository.addTab(personalId, "Google", "https://www.google.com", 0, isActive = true)
+                    val tabId1 = repository.addTab(id, "New Tab", "xora://newtab", 0, isActive = true)
+                    val tabId2 = repository.addTab(personalId, "New Tab", "xora://newtab", 0, isActive = true)
                 }
             }
         }
@@ -75,7 +75,7 @@ class BrowserViewModel(
         viewModelScope.launch {
             val id = repository.createIdentity(name, colorHex, iconName, isIncognito)
             repository.setActiveIdentity(id)
-            repository.addTab(id, "New Tab", "https://www.google.com", 0, isActive = true)
+            repository.addTab(id, "New Tab", "xora://newtab", 0, isActive = true)
         }
     }
 
@@ -86,10 +86,24 @@ class BrowserViewModel(
     }
 
     fun onUrlSubmitted(url: String) {
-        var finalUrl = url
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            finalUrl = "https://$url"
+        val input = url.trim()
+        val isUrl = android.util.Patterns.WEB_URL.matcher(input).matches()
+        var finalUrl = input
+
+        if (isUrl) {
+            if (!input.startsWith("http://") && !input.startsWith("https://")) {
+                finalUrl = "https://$input"
+            }
+        } else {
+            val engine = searchEngine.value
+            val encodedQuery = java.net.URLEncoder.encode(input, "UTF-8")
+            finalUrl = when (engine) {
+                "Bing" -> "https://www.bing.com/search?q=$encodedQuery"
+                "DuckDuckGo" -> "https://duckduckgo.com/?q=$encodedQuery"
+                else -> "https://www.google.com/search?q=$encodedQuery"
+            }
         }
+
         _isAddressBarFocused.value = false
         
         val tab = activeTab.value
@@ -99,13 +113,13 @@ class BrowserViewModel(
         if (tab != null) {
             viewModelScope.launch {
                 repository.updateTab(tab.copy(url = finalUrl, title = finalUrl))
-                if (!isIncognito) repository.addHistory(tab.identityId, finalUrl, finalUrl)
+                if (!isIncognito && finalUrl != "xora://newtab") repository.addHistory(tab.identityId, finalUrl, finalUrl)
             }
         } else {
             if (identity != null) {
                 viewModelScope.launch {
                     repository.addTab(identity.id, finalUrl, finalUrl, tabs.value.size, isActive = true)
-                    if (!isIncognito) repository.addHistory(identity.id, finalUrl, finalUrl)
+                    if (!isIncognito && finalUrl != "xora://newtab") repository.addHistory(identity.id, finalUrl, finalUrl)
                 }
             }
         }
@@ -127,7 +141,7 @@ class BrowserViewModel(
     fun createNewTab() {
         val identity = activeIdentity.value ?: return
         viewModelScope.launch {
-            repository.addTab(identity.id, "New Tab", "https://www.google.com", tabs.value.size, isActive = true)
+            repository.addTab(identity.id, "New Tab", "xora://newtab", tabs.value.size, isActive = true)
         }
     }
 

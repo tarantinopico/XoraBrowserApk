@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Star
@@ -52,9 +53,9 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(modifier: Modifier = Modifier) {
-    val viewModel: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory)
+fun BrowserScreen(modifier: Modifier = Modifier, viewModel: BrowserViewModel = viewModel(factory = BrowserViewModel.Factory)) {
     val tabs by viewModel.tabs.collectAsState()
+
     val activeTab by viewModel.activeTab.collectAsState()
     val isAddressBarFocused by viewModel.isAddressBarFocused.collectAsState()
     val activeIdentity by viewModel.activeIdentity.collectAsState()
@@ -132,68 +133,109 @@ fun BrowserScreen(modifier: Modifier = Modifier) {
             // Web View Area
             Box(modifier = Modifier.fillMaxSize().weight(1f)) {
                 if (activeTab != null) {
-                    androidx.compose.runtime.key(activeTab!!.id) {
-                        var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
-                        
-                        AndroidView(
-                            factory = { context ->
-                                WebView(context).apply {
-                                    settings.javaScriptEnabled = true
-                                    settings.domStorageEnabled = true
-                                    webChromeClient = object : android.webkit.WebChromeClient() {
-                                        override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                            super.onProgressChanged(view, newProgress)
-                                            loadProgress = newProgress / 100f
-                                            isLoading = newProgress < 100
+                    if (activeTab!!.url == "xora://newtab" || activeTab!!.url == "about:blank") {
+                        // Premium New Tab Page
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .imePadding()
+                                .padding(Spacing.Large),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val activeColor = activeIdentity?.colorHex?.let { kotlin.runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: MaterialTheme.colorScheme.primary
+                            val vector = availableIcons[activeIdentity?.iconName] ?: Icons.Default.Person
+                            
+                            Icon(
+                                imageVector = if (activeIdentity?.isIncognito == true) Icons.Default.Lock else vector,
+                                contentDescription = null,
+                                tint = activeColor,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(activeColor.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
+                                    .padding(20.dp)
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.Large))
+                            Text(
+                                "Welcome to Xora",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.Medium))
+                            Text(
+                                "Start typing in the address bar to search or navigate.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        androidx.compose.runtime.key(activeTab!!.id) {
+                            var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
+                            
+                            AndroidView(
+                                factory = { context ->
+                                    WebView(context).apply {
+                                        settings.javaScriptEnabled = true
+                                        settings.domStorageEnabled = true
+                                        webChromeClient = object : android.webkit.WebChromeClient() {
+                                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                                super.onProgressChanged(view, newProgress)
+                                                loadProgress = newProgress / 100f
+                                                isLoading = newProgress < 100
+                                            }
                                         }
-                                    }
-                                    webViewClient = object : WebViewClient() {
-                                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                            super.onPageStarted(view, url, favicon)
-                                            url?.let { viewModel.onPageStarted(it) }
-                                            isLoading = true
-                                            loadProgress = 0f
+                                        webViewClient = object : WebViewClient() {
+                                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                                super.onPageStarted(view, url, favicon)
+                                                url?.let { viewModel.onPageStarted(it) }
+                                                isLoading = true
+                                                loadProgress = 0f
+                                            }
+                                            
+                                            override fun onPageFinished(view: WebView?, url: String?) {
+                                                super.onPageFinished(view, url)
+                                                isLoading = false
+                                                loadProgress = 1f
+                                            }
+                                            
+                                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                                if (request?.url?.toString()?.startsWith("http") == true) {
+                                                    return false
+                                                }
+                                                return true
+                                            }
                                         }
                                         
-                                        override fun onPageFinished(view: WebView?, url: String?) {
-                                            super.onPageFinished(view, url)
-                                            isLoading = false
-                                            loadProgress = 1f
+                                        setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                                            val request = android.app.DownloadManager.Request(android.net.Uri.parse(url)).apply {
+                                                setMimeType(mimetype)
+                                                addRequestHeader("User-Agent", userAgent)
+                                                setDescription("Downloading file...")
+                                                setTitle(android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
+                                                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                                setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
+                                            }
+                                            val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                                            dm.enqueue(request)
+                                            android.widget.Toast.makeText(context, "Download started", android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                         
-                                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                            return false
-                                        }
+                                        webView = this
+                                        lastLoadedUrl = activeTab!!.url
+                                        loadUrl(activeTab!!.url)
                                     }
-                                    
-                                    setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-                                        val request = android.app.DownloadManager.Request(android.net.Uri.parse(url)).apply {
-                                            setMimeType(mimetype)
-                                            addRequestHeader("User-Agent", userAgent)
-                                            setDescription("Downloading file...")
-                                            setTitle(android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
-                                            setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                            setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype))
-                                        }
-                                        val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                                        dm.enqueue(request)
-                                        android.widget.Toast.makeText(context, "Download started", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                    
-                                    webView = this
-                                    lastLoadedUrl = activeTab!!.url
-                                    loadUrl(activeTab!!.url)
-                                }
-                            },
-                            update = { view ->
-                                 val targetedUrl = activeTab?.url
-                                 if (targetedUrl != null && lastLoadedUrl != targetedUrl && !isAddressBarFocused) {
-                                     lastLoadedUrl = targetedUrl
-                                     view.loadUrl(targetedUrl)
-                                 }
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                                },
+                                update = { view ->
+                                     val targetedUrl = activeTab?.url
+                                     if (targetedUrl != null && lastLoadedUrl != targetedUrl && !isAddressBarFocused && targetedUrl != "xora://newtab" && targetedUrl != "about:blank") {
+                                         lastLoadedUrl = targetedUrl
+                                         view.loadUrl(targetedUrl)
+                                     }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
@@ -265,7 +307,9 @@ fun BrowserAddressBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var inputText by remember(url, isFocused) { mutableStateOf(if (isFocused) url else url.removePrefix("https://").removePrefix("http://")) }
+    var inputText by remember(url, isFocused) { 
+        mutableStateOf(if (url.startsWith("xora://") || url == "about:blank") "" else if (isFocused) url else url.removePrefix("https://").removePrefix("http://")) 
+    }
 
     Surface(
         color = if (isIncognito) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface,
@@ -273,69 +317,100 @@ fun BrowserAddressBar(
         contentColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-                .windowInsetsPadding(WindowInsets.statusBars),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            
-            IconButton(onClick = { 
-                /* Emit back event, handled below, or just pass back action */
-                onBack()
-            }) {
-                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = if (isIncognito) Color.White else LocalContentColor.current)
-            }
-            
-            // Domain input
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp)
-                    .onFocusChanged { onFocusChanged(it.isFocused) },
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (isIncognito) Color.DarkGray else MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant,
-                    focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
-                    unfocusedTextColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface
-                ),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go
-                ),
-                keyboardActions = KeyboardActions(
-                    onGo = { onUrlSubmitted(inputText) }
-                ),
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Secure",
-                        modifier = Modifier.size(16.dp),
-                        tint = if (isIncognito) Color.Gray else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                trailingIcon = {
-                    if (isFocused) {
-                        IconButton(onClick = { inputText = "" }, modifier = Modifier.size(32.dp)) {
-                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(16.dp), tint = if (isIncognito) Color.White else LocalContentColor.current)
-                        }
-                    } else {
-                        IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
-                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp), tint = if (isIncognito) Color.White else LocalContentColor.current)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .windowInsetsPadding(WindowInsets.statusBars),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                
+                IconButton(onClick = onBack) {
+                     Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = if (isIncognito) Color.White else LocalContentColor.current)
+                }
+                
+                // Domain input
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp)
+                        .onFocusChanged { onFocusChanged(it.isFocused) },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (isIncognito) Color.DarkGray else MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant,
+                        focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = if (isIncognito) Color.LightGray else MaterialTheme.colorScheme.onSurface
+                    ),
+                    singleLine = true,
+                    placeholder = { Text("Search or type URL", color = if(isIncognito) Color.Gray else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.7f)) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Go
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onGo = { if(inputText.isNotBlank()) onUrlSubmitted(inputText) }
+                    ),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Secure",
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isIncognito) Color.Gray else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        if (isFocused && inputText.isNotEmpty()) {
+                            IconButton(onClick = { inputText = "" }, modifier = Modifier.size(32.dp)) {
+                                Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(16.dp), tint = if (isIncognito) Color.White else LocalContentColor.current)
+                            }
+                        } else if (!isFocused) {
+                            IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                                Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp), tint = if (isIncognito) Color.White else LocalContentColor.current)
+                            }
                         }
                     }
-                }
-            )
+                )
 
-            IconButton(onClick = onOpenMenu) {
-                Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu", tint = if (isIncognito) Color.White else LocalContentColor.current)
+                IconButton(onClick = onOpenMenu) {
+                    Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu", tint = if (isIncognito) Color.White else LocalContentColor.current)
+                }
+            }
+
+            AnimatedVisibility(visible = isFocused && inputText.isNotBlank()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    val isUrlRegex = android.util.Patterns.WEB_URL.matcher(inputText).matches()
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isIncognito) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onUrlSubmitted(inputText) }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isUrlRegex) Icons.Default.Lock else Icons.Default.Search,
+                            contentDescription = null,
+                            tint = if(isIncognito) Color.Gray else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = if (isUrlRegex) "Go to $inputText" else "Search for \"$inputText\"",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if(isIncognito) Color.White else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
             }
         }
     }
